@@ -1,101 +1,201 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { WeatherData } from '@/types/weather';
+import { getCurrentWeather, getUserLocation } from '@/services/weather';
+import { FaTrash } from 'react-icons/fa';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [favorites, setFavorites] = useState<WeatherData[]>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('weatherFavorites');
+    if (savedFavorites) {
+      setFavorites(JSON.parse(savedFavorites));
+    }
+  }, []);
+
+  const addToFavorites = () => {
+    if (!weather) return;
+    const exists = favorites.some(fav => fav.location.name === weather.location.name);
+    if (!exists) {
+      const newFavorites = [...favorites, weather];
+      setFavorites(newFavorites);
+      localStorage.setItem('weatherFavorites', JSON.stringify(newFavorites));
+    }
+  };
+
+  const removeFromFavorites = (cityName: string) => {
+    const newFavorites = favorites.filter(fav => fav.location.name !== cityName);
+    setFavorites(newFavorites);
+    localStorage.setItem('weatherFavorites', JSON.stringify(newFavorites));
+  };
+
+  useEffect(() => {
+    async function fetchWeather() {
+      try {
+        const location = await getUserLocation();
+        const weatherData = await getCurrentWeather(location);
+        setWeather(weatherData);
+        setError(null);
+      } catch (err) {
+        setIsSearchMode(true);
+        setError('Please enter a location to get weather information');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchWeather();
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setLoading(true);
+    try {
+      const weatherData = await getCurrentWeather(searchQuery);
+      setWeather(weatherData);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch weather data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white"></div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-blue-400 to-purple-500 p-4 sm:p-8 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCA1NiAyOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNTYgMjhMMjggMjhMMjggMEw1NiAwTDU2IDI4WiIgZmlsbD0id2hpdGUiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-10"></div>
+      <div className="max-w-4xl mx-auto relative z-10">
+        <h1 className="text-4xl font-bold text-white text-center mb-8 animate-fade-in">Weather Dashboard</h1>
+        
+        <form onSubmit={handleSearch} className="mb-8 transform transition-all duration-300 ease-in-out hover:scale-[1.02]">
+          <div className="relative max-w-md mx-auto">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search location..."
+              className="w-full px-4 py-3 rounded-lg bg-white/90 backdrop-blur-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all duration-300 shadow-lg text-gray-800 placeholder-gray-500"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <button
+              type="submit"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors duration-300 disabled:opacity-50"
+              disabled={!searchQuery.trim()}
+            >
+              Search
+            </button>
+          </div>
+        </form>
+
+        {error ? (
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 sm:p-8 transform transition-all hover:scale-[1.02] border border-white/20 max-w-md mx-auto">
+            <p className="text-gray-700 text-center">{error}</p>
+          </div>
+        ) : weather ? (
+          <div 
+            className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-6 sm:p-8 transform transition-all hover:scale-[1.02] border border-white/20"
+            onDoubleClick={addToFavorites}
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h1 className="text-4xl font-bold text-gray-800">{weather.location.name}</h1>
+                <p className="text-gray-600">{weather.location.country}</p>
+                <p className="text-gray-500">{weather.location.localtime}</p>
+                
+                <div className="flex items-center space-x-4">
+                  <span className="text-6xl font-bold text-gray-800">
+                    {Math.round(weather.current.temp_c)}°C
+                  </span>
+                  <span className="text-2xl text-gray-600">
+                    / {Math.round(weather.current.temp_f)}°F
+                  </span>
+                </div>
+                
+                <p className="text-xl text-gray-700">{weather.current.condition.text}</p>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-xl transform transition-all duration-300 hover:scale-105">
+                    <p className="text-sm text-blue-600">Feels Like</p>
+                    <p className="text-2xl font-semibold text-blue-800">
+                      {Math.round(weather.current.feelslike_c)}°C
+                    </p>
+                  </div>
+                  
+                  <div className="bg-purple-50 p-4 rounded-xl transform transition-all duration-300 hover:scale-105">
+                    <p className="text-sm text-purple-600">Humidity</p>
+                    <p className="text-2xl font-semibold text-purple-800">
+                      {weather.current.humidity}%
+                    </p>
+                  </div>
+                  
+                  <div className="bg-green-50 p-4 rounded-xl transform transition-all duration-300 hover:scale-105">
+                    <p className="text-sm text-green-600">Wind Speed</p>
+                    <p className="text-2xl font-semibold text-green-800">
+                      {weather.current.wind_kph} km/h
+                    </p>
+                  </div>
+                  
+                  <div className="bg-yellow-50 p-4 rounded-xl transform transition-all duration-300 hover:scale-105">
+                    <p className="text-sm text-yellow-600">UV Index</p>
+                    <p className="text-2xl font-semibold text-yellow-800">
+                      {weather.current.uv}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {favorites.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Favorite Cities</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {favorites.map((fav) => (
+                <div
+                  key={fav.location.name}
+                  className="bg-white/90 backdrop-blur-sm rounded-xl p-4 relative group"
+                >
+                  <button
+                    onClick={() => removeFromFavorites(fav.location.name)}
+                    className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <FaTrash />
+                  </button>
+                  <h3 className="text-xl font-semibold text-gray-800">{fav.location.name}</h3>
+                  <p className="text-gray-600">{fav.location.country}</p>
+                  <div className="mt-2 flex items-center space-x-2">
+                    <span className="text-2xl font-bold text-gray-800">
+                      {Math.round(fav.current.temp_c)}°C
+                    </span>
+                    <span className="text-gray-600">
+                      {fav.current.condition.text}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
